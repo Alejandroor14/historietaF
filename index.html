@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Sector 72 - WebAR Comic (Audio & Touch)</title>
+    <title>Sector 72 - WebAR Comic (Audio Fix)</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
@@ -33,18 +33,53 @@
         z-index: 10;
         pointer-events: none;
       }
+      /* Pantalla de inicio para desbloquear el audio */
+      #start-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(10, 10, 10, 0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 100; /* Por encima de todo */
+      }
+      #start-btn {
+        padding: 15px 30px;
+        font-size: 20px;
+        background-color: #ff0055;
+        color: #fff;
+        border: 2px solid #ffaa00;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0px 0px 20px #ff0055;
+        margin-top: 20px;
+      }
+      #start-btn:active {
+        transform: scale(0.95);
+      }
     </style>
   </head>
   <body>
+    <!-- Pantalla de bloqueo de audio -->
+    <div id="start-screen">
+      <h1 style="color: #00ffcc; text-shadow: 0 0 10px #00ffcc; text-align: center;">SECTOR 72</h1>
+      <p style="color: white; text-align: center; max-width: 80%;">Asegúrate de no tener el celular en silencio.</p>
+      <button id="start-btn">ENTRAR AL SISTEMA (Activar Audio)</button>
+    </div>
+
     <div class="instructions">
       <h2>Apunta al marcador "Hiro"</h2>
     </div>
     
     <div class="status" id="page-counter">
-      Página 1/10 (Toca la viñeta holográfica para empezar el audio y avanzar)
+      Página 1/10 (Toca la viñeta holográfica para avanzar)
     </div>
 
-    <!-- Escena AR con Raycaster activado para detectar toques en pantalla -->
     <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;"
              cursor="rayOrigin: mouse" 
              raycaster="objects: .clickable">
@@ -64,18 +99,12 @@
 
       <a-marker preset="hiro">
         <a-entity position="0 0.5 0" rotation="-90 0 0">
-          
           <a-image id="comic-display" class="clickable" src="#p1" width="3.5" height="2" position="0 0.5 0.1"></a-image>
           <a-plane width="3.5" height="0.6" color="#0a0a0a" opacity="0.8" position="0 -0.8 0.1"></a-plane>
-
           <a-text id="story-text" 
                   value="[1/10]\nSector 72.\nLa lluvia nunca para de quemar..." 
-                  align="center" 
-                  color="#00ffcc" 
-                  width="3" 
-                  position="0 -0.8 0.15">
+                  align="center" color="#00ffcc" width="3" position="0 -0.8 0.15">
           </a-text>
-
         </a-entity>
       </a-marker>
       <a-entity camera></a-entity>
@@ -96,43 +125,49 @@
       ];
 
       const images = ['#p1', '#p2', '#p3', '#p4', '#p5', '#p6', '#p7', '#p8', '#p9', '#p10'];
-
       let currentIndex = 0;
+
+      // Elementos de la interfaz
+      const startScreen = document.getElementById('start-screen');
+      const startBtn = document.getElementById('start-btn');
       const textElement = document.querySelector('#story-text');
       const imageDisplay = document.querySelector('#comic-display');
       const pageCounter = document.querySelector('#page-counter');
 
-      // 1. Configuramos los audios
+      // Audios
       const ambientAudio = new Audio('ambiente.mp3');
-      ambientAudio.loop = true; // Bucle infinito
-      ambientAudio.volume = 0.4; // Volumen ambiental moderado
+      ambientAudio.loop = true;
+      ambientAudio.volume = 0.4;
 
       const alarmAudio = new Audio('alarma.mp3');
-      alarmAudio.loop = true; // Que la alarma suene en bucle mientras esté en la página 6
-      alarmAudio.volume = 0.8; // Volumen más alto para dar tensión
+      alarmAudio.loop = true;
+      alarmAudio.volume = 0.8;
 
-      let audioStarted = false;
-
-      // 2. Escuchamos el toque en la imagen
-      imageDisplay.addEventListener('click', () => {
+      // 1. DESBLOQUEO DE AUDIO CON CLIC REAL
+      startBtn.addEventListener('click', () => {
+        // Al tocar un botón HTML real, el navegador permite reproducir audio
+        ambientAudio.play().catch(e => console.log("Error ambiente:", e));
         
-        // Las políticas de los navegadores móviles bloquean el audio hasta que el usuario interactúa (toca).
-        // Por eso iniciamos el sonido ambiente justo en el primer toque.
-        if (!audioStarted) {
-          ambientAudio.play().catch(e => console.log("Audio block: ", e));
-          audioStarted = true;
-        }
+        // Reproducimos y pausamos la alarma de inmediato para desbloquearla también
+        alarmAudio.play().then(() => {
+          alarmAudio.pause();
+          alarmAudio.currentTime = 0;
+        }).catch(e => console.log("Error alarma:", e));
 
+        // Ocultamos la pantalla de inicio
+        startScreen.style.display = 'none';
+      });
+
+      // 2. NAVEGACIÓN DE LA HISTORIETA (Clic en 3D)
+      imageDisplay.addEventListener('click', () => {
         currentIndex++;
         if (currentIndex >= texts.length) {
           currentIndex = 0;
         }
         
-        // Cambiar textos y texturas
         textElement.setAttribute('value', texts[currentIndex]);
         imageDisplay.setAttribute('src', images[currentIndex]);
         
-        // Animación holográfica
         imageDisplay.setAttribute('opacity', '0.3');
         imageDisplay.setAttribute('scale', '0.95 0.95 0.95');
         setTimeout(() => {
@@ -140,14 +175,11 @@
           imageDisplay.setAttribute('scale', '1 1 1');
         }, 150);
 
-        // 3. Lógica dinámica de audio (Página 6 = índice 5)
         if (currentIndex === 5) {
           alarmAudio.currentTime = 0;
           alarmAudio.play();
-          // Bajamos el volumen de la lluvia para que la alarma destaque más
           ambientAudio.volume = 0.1;
         } else {
-          // Si cambiamos de página, detenemos la alarma y restauramos la lluvia
           alarmAudio.pause();
           ambientAudio.volume = 0.4;
         }
@@ -157,3 +189,4 @@
     </script>
   </body>
 </html>
+
