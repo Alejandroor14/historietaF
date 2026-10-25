@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Sector 72 - WebAR Comic (Audio & Touch)</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: 'Courier New', Courier, monospace;
+      }
+      .instructions {
+        position: absolute;
+        top: 10px;
+        width: 100%;
+        text-align: center;
+        color: white;
+        text-shadow: 2px 2px 4px #000;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .status {
+        position: absolute;
+        bottom: 20px;
+        width: 100%;
+        text-align: center;
+        color: #00ffcc;
+        text-shadow: 1px 1px 3px #000;
+        font-weight: bold;
+        font-size: 18px;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="instructions">
+      <h2>Apunta al marcador "Hiro"</h2>
+    </div>
+    
+    <div class="status" id="page-counter">
+      Página 1/10 (Toca la viñeta holográfica para empezar el audio y avanzar)
+    </div>
+
+    <!-- Escena AR con Raycaster activado para detectar toques en pantalla -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;"
+             cursor="rayOrigin: mouse" 
+             raycaster="objects: .clickable">
+      
+      <a-assets>
+        <img id="p1" src="pagina1.jpg">
+        <img id="p2" src="pagina2.jpg">
+        <img id="p3" src="pagina3.jpg">
+        <img id="p4" src="pagina4.jpg">
+        <img id="p5" src="pagina5.jpg">
+        <img id="p6" src="pagina6.jpg">
+        <img id="p7" src="pagina7.jpg">
+        <img id="p8" src="pagina8.jpg">
+        <img id="p9" src="pagina9.jpg">
+        <img id="p10" src="pagina10.jpg">
+      </a-assets>
+
+      <a-marker preset="hiro">
+        <a-entity position="0 0.5 0" rotation="-90 0 0">
+          
+          <a-image id="comic-display" class="clickable" src="#p1" width="3.5" height="2" position="0 0.5 0.1"></a-image>
+          <a-plane width="3.5" height="0.6" color="#0a0a0a" opacity="0.8" position="0 -0.8 0.1"></a-plane>
+
+          <a-text id="story-text" 
+                  value="[1/10]\nSector 72.\nLa lluvia nunca para de quemar..." 
+                  align="center" 
+                  color="#00ffcc" 
+                  width="3" 
+                  position="0 -0.8 0.15">
+          </a-text>
+
+        </a-entity>
+      </a-marker>
+      <a-entity camera></a-entity>
+    </a-scene>
+
+    <script>
+      const texts = [
+        "[1/10]\nSector 72.\nLa lluvia nunca para de quemar...",
+        "[2/10]\nLa Torre de la Corporacion...\nimpenetrable.",
+        "[3/10]\nPuerto de enlace localizado.\nIniciando hackeo.",
+        "[4/10]\nCortafuegos superado.\nEl tiempo corre.",
+        "[5/10]\nEl nucleo de datos...\nProcesando al limite.",
+        "[6/10]\n¡ALERTA!\nIntrusion detectada.",
+        "[7/10]\n¡Sobrecarga de pulso!\nLa ultima carta...",
+        "[8/10]\nDesvanecerse en las sombras.\nSolo una sombra mas.",
+        "[9/10]\nLa informacion esta a salvo.\nEl trabajo esta hecho.",
+        "[10/10]\nPor fin... un respiro.\nMañana sera otro dia."
+      ];
+
+      const images = ['#p1', '#p2', '#p3', '#p4', '#p5', '#p6', '#p7', '#p8', '#p9', '#p10'];
+
+      let currentIndex = 0;
+      const textElement = document.querySelector('#story-text');
+      const imageDisplay = document.querySelector('#comic-display');
+      const pageCounter = document.querySelector('#page-counter');
+
+      // 1. Configuramos los audios
+      const ambientAudio = new Audio('ambiente.mp3');
+      ambientAudio.loop = true; // Bucle infinito
+      ambientAudio.volume = 0.4; // Volumen ambiental moderado
+
+      const alarmAudio = new Audio('alarma.mp3');
+      alarmAudio.loop = true; // Que la alarma suene en bucle mientras esté en la página 6
+      alarmAudio.volume = 0.8; // Volumen más alto para dar tensión
+
+      let audioStarted = false;
+
+      // 2. Escuchamos el toque en la imagen
+      imageDisplay.addEventListener('click', () => {
+        
+        // Las políticas de los navegadores móviles bloquean el audio hasta que el usuario interactúa (toca).
+        // Por eso iniciamos el sonido ambiente justo en el primer toque.
+        if (!audioStarted) {
+          ambientAudio.play().catch(e => console.log("Audio block: ", e));
+          audioStarted = true;
+        }
+
+        currentIndex++;
+        if (currentIndex >= texts.length) {
+          currentIndex = 0;
+        }
+        
+        // Cambiar textos y texturas
+        textElement.setAttribute('value', texts[currentIndex]);
+        imageDisplay.setAttribute('src', images[currentIndex]);
+        
+        // Animación holográfica
+        imageDisplay.setAttribute('opacity', '0.3');
+        imageDisplay.setAttribute('scale', '0.95 0.95 0.95');
+        setTimeout(() => {
+          imageDisplay.setAttribute('opacity', '1');
+          imageDisplay.setAttribute('scale', '1 1 1');
+        }, 150);
+
+        // 3. Lógica dinámica de audio (Página 6 = índice 5)
+        if (currentIndex === 5) {
+          alarmAudio.currentTime = 0;
+          alarmAudio.play();
+          // Bajamos el volumen de la lluvia para que la alarma destaque más
+          ambientAudio.volume = 0.1;
+        } else {
+          // Si cambiamos de página, detenemos la alarma y restauramos la lluvia
+          alarmAudio.pause();
+          ambientAudio.volume = 0.4;
+        }
+
+        pageCounter.innerText = `Página ${currentIndex + 1}/10 (Toca la viñeta para avanzar)`;
+      });
+    </script>
+  </body>
+</html>
